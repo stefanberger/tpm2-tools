@@ -194,7 +194,7 @@ bool tpm2_openssl_hash_pcr_banks(TPMI_ALG_HASH hashAlg,
     }
 
     // Loop through all PCR/hash banks 
-    for (i = 0; i < pcrSelect->count; i++) {
+    for (i = 0; i < le32toh(pcrSelect->count); i++) {
 
         // Loop through all PCRs in this bank
         UINT8 pcr_id;
@@ -204,25 +204,25 @@ bool tpm2_openssl_hash_pcr_banks(TPMI_ALG_HASH hashAlg,
                 // skip non-selected banks
                 continue;
             }
-            if (vi >= pcrs->count || di >= pcrs->pcr_values[vi].count) {
+            if (vi >= le64toh(pcrs->count) || di >= le32toh(pcrs->pcr_values[vi].count)) {
                 LOG_ERR("Something wrong, trying to print but nothing more");
                 goto out;
             }
 
             // Update running digest (to compare with quote)
             TPM2B_DIGEST *b = &pcrs->pcr_values[vi].digests[di];
-            rc = EVP_DigestUpdate(mdctx, b->buffer, b->size);
+            rc = EVP_DigestUpdate(mdctx, b->buffer, le16toh(b->size));
             if (!rc) {
                 LOG_ERR("%s", get_openssl_err());
                 goto out;
             }
 
-            if (++di < pcrs->pcr_values[vi].count) {
+            if (++di < le32toh(pcrs->pcr_values[vi].count)) {
                 continue;
             }
 
             di = 0;
-            if (++vi < pcrs->count) {
+            if (++vi < le64toh(pcrs->count)) {
                 continue;
             }
         }
