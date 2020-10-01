@@ -96,7 +96,11 @@ TSS2_RC tpm_kdfa(TPMI_ALG_HASH hashAlg,
     tpm2b_i_2.size = 4;
 
     tpm2bBits.size = 4;
-    bitsSwizzled = tpm2_util_endian_swap_32( bits );
+    if (!tpm2_util_is_big_endian()) {
+        bitsSwizzled = tpm2_util_endian_swap_32( bits );
+    } else {
+        bitsSwizzled = bits;
+    }
     *(UINT32 *)tpm2bBitsPtr = bitsSwizzled;
 
     for(i = 0; label[i] != 0 ;i++ );
@@ -136,7 +140,11 @@ TSS2_RC tpm_kdfa(TPMI_ALG_HASH hashAlg,
         TPM2B_DIGEST tmpResult;
         // Inner loop
 
-        i_Swizzled = tpm2_util_endian_swap_32( i );
+        if (!tpm2_util_is_big_endian()) {
+            i_Swizzled = tpm2_util_endian_swap_32( i );
+        } else {
+            i_Swizzled = i;
+        }
         *(UINT32 *)tpm2b_i_2Ptr = i_Swizzled;
 
         j = 0;
