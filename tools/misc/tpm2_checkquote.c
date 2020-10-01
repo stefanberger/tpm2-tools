@@ -8,6 +8,7 @@
 #include "files.h"
 #include "log.h"
 #include "object.h"
+#include "systemdeps.h"
 #include "tpm2_alg_util.h"
 #include "tpm2_convert.h"
 #include "tpm2_openssl.h"
@@ -177,14 +178,14 @@ static bool pcrs_from_file(const char *pcr_file_path,
         goto out;
     }
 
-    if (pcrs->count > ARRAY_LEN(pcrs->pcr_values)) {
+    if (le64toh(pcrs->count) > ARRAY_LEN(pcrs->pcr_values)) {
         LOG_ERR("Malformed PCR file, pcr count cannot be greater than %zu, got: %zu",
-                ARRAY_LEN(pcrs->pcr_values), pcrs->count);
+                ARRAY_LEN(pcrs->pcr_values), le64toh(pcrs->count));
         goto out;
     }
 
     UINT32 j;
-    for (j = 0; j < pcrs->count; j++) {
+    for (j = 0; j < le64toh(pcrs->count); j++) {
         if (fread(&pcrs->pcr_values[j], sizeof(TPML_DIGEST), 1, pcr_input)
                 != 1) {
             LOG_ERR("Failed to read PCR digest from file");
@@ -254,20 +255,20 @@ static tool_rc init(void) {
             goto err;
         }
 
-        if (pcr_select.count > TPM2_NUM_PCR_BANKS)
+        if (le32toh(pcr_select.count) > TPM2_NUM_PCR_BANKS)
             goto err;
 
         UINT32 i;
-        for (i = 0; i < pcr_select.count; i++)
-            if (pcr_select.pcrSelections[i].hash == TPM2_ALG_ERROR)
+        for (i = 0; i < le32toh(pcr_select.count); i++)
+            if (le16toh(pcr_select.pcrSelections[i].hash) == TPM2_ALG_ERROR)
             goto err;
 
-        if (!tpm2_openssl_hash_pcr_banks(ctx.halg, &pcr_select, pcrs,
+        if (!tpm2_openssl_hash_pcr_banks_le(ctx.halg, &pcr_select, pcrs,
                 &ctx.pcr_hash)) {
             LOG_ERR("Failed to hash PCR values related to quote!");
             goto err;
         }
-        if (!pcr_print_pcr_struct(&pcr_select, pcrs)) {
+        if (!pcr_print_pcr_struct_le(&pcr_select, pcrs)) {
             LOG_ERR("Failed to print PCR values related to quote!");
             goto err;
         }

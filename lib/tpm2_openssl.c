@@ -10,6 +10,7 @@
 
 #include "files.h"
 #include "log.h"
+#include "systemdeps.h"
 #include "tpm2_alg_util.h"
 #include "tpm2_openssl.h"
 
@@ -276,6 +277,83 @@ bool tpm2_openssl_hash_pcr_banks(TPMI_ALG_HASH hash_alg,
 
             di = 0;
             if (++vi < pcrs->count) {
+                continue;
+            }
+        }
+    }
+
+    // Finalize running digest
+    unsigned size = EVP_MD_size(md);
+    rc = EVP_DigestFinal_ex(mdctx, digest->buffer, &size);
+    if (!rc) {
+        LOG_ERR("%s", get_openssl_err());
+        goto out;
+    }
+
+    digest->size = size;
+
+    result = true;
+
+out:
+    EVP_MD_CTX_destroy(mdctx);
+    return result;
+}
+
+// show all PCR banks according to g_pcrSelection & g_pcrs->
+bool tpm2_openssl_hash_pcr_banks_le(TPMI_ALG_HASH hash_alg,
+        TPML_PCR_SELECTION *pcr_select, tpm2_pcrs *pcrs, TPM2B_DIGEST *digest) {
+
+    UINT32 vi = 0, di = 0, i;
+    bool result = false;
+
+    const EVP_MD *md = tpm2_openssl_halg_from_tpmhalg(hash_alg);
+    if (!md) {
+        return false;
+    }
+
+    EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
+    if (!mdctx) {
+        LOG_ERR("%s", get_openssl_err());
+        return false;
+    }
+
+    int rc = EVP_DigestInit_ex(mdctx, md, NULL);
+    if (!rc) {
+        LOG_ERR("%s", get_openssl_err());
+        goto out;
+    }
+
+    // Loop through all PCR/hash banks
+    for (i = 0; i < le32toh(pcr_select->count); i++) {
+
+        // Loop through all PCRs in this bank
+        unsigned int pcr_id;
+        for (pcr_id = 0; pcr_id < pcr_select->pcrSelections[i].sizeofSelect * 8u;
+                pcr_id++) {
+            if (!tpm2_util_is_pcr_select_bit_set(&pcr_select->pcrSelections[i],
+                    pcr_id)) {
+                // skip non-selected banks
+                continue;
+            }
+            if (vi >= le64toh(pcrs->count) || di >= le32toh(pcrs->pcr_values[vi].count)) {
+                LOG_ERR("Something wrong, trying to print but nothing more");
+                goto out;
+            }
+
+            // Update running digest (to compare with quote)
+            TPM2B_DIGEST *b = &pcrs->pcr_values[vi].digests[di];
+            rc = EVP_DigestUpdate(mdctx, b->buffer, le16toh(b->size));
+            if (!rc) {
+                LOG_ERR("%s", get_openssl_err());
+                goto out;
+            }
+
+            if (++di < le32toh(pcrs->pcr_values[vi].count)) {
+                continue;
+            }
+
+            di = 0;
+            if (++vi < le64toh(pcrs->count)) {
                 continue;
             }
         }

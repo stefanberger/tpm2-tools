@@ -119,6 +119,23 @@ bool tpm2_openssl_hash_pcr_banks(TPMI_ALG_HASH hashAlg,
         TPML_PCR_SELECTION *pcr_select, tpm2_pcrs *pcrs, TPM2B_DIGEST *digest);
 
 /**
+ * Hash a list of PCR digests, supporting multiple banks.
+ * Assume the data is in little endian.
+ * @param halg
+ *  The hashing algorithm to use.
+ * @param pcr_select
+ *  The list that specifies which PCRs are selected.
+ * @param pcrs
+ *  The list of PCR banks, each containing a list of PCR digests to hash.
+ ^ * @param digest
+ ^ *  The result of hashing digests with halg.
+ * @return
+ *  true on success, false on error.
+ */
+bool tpm2_openssl_hash_pcr_banks_le(TPMI_ALG_HASH hashAlg,
+        TPML_PCR_SELECTION *pcr_select, tpm2_pcrs *pcrs, TPM2B_DIGEST *digest);
+
+/**
  * Obtains an OpenSSL EVP_CIPHER_CTX dealing with version
  * API changes in OSSL.
  *
