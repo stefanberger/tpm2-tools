@@ -184,14 +184,14 @@ static bool pcrs_from_file(const char *pcr_file_path,
         goto out;
     }
 
-    if (pcrs->count > ARRAY_LEN(pcrs->pcr_values)) {
+    if (le64toh(pcrs->count) > ARRAY_LEN(pcrs->pcr_values)) {
         LOG_ERR("Malformed PCR file, pcr count cannot be greater than %zu, got: %zu",
-                ARRAY_LEN(pcrs->pcr_values), pcrs->count);
+                ARRAY_LEN(pcrs->pcr_values), le64toh(pcrs->count));
         goto out;
     }
 
     UINT32 j;
-    for (j = 0; j < pcrs->count; j++) {
+    for (j = 0; j < le64toh(pcrs->count); j++) {
         if (fread(&pcrs->pcr_values[j], sizeof(TPML_DIGEST), 1, pcr_input)
                 != 1) {
             LOG_ERR("Failed to read PCR digest from file");

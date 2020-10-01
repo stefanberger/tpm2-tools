@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <endian.h>
 
 #include "log.h"
 #include "pcr.h"
@@ -184,9 +185,9 @@ bool pcr_print_pcr_struct(TPML_PCR_SELECTION *pcr_select, tpm2_pcrs *pcrs) {
     tpm2_tool_output("pcrs:\n");
 
     // Loop through all PCR/hash banks
-    for (i = 0; i < pcr_select->count; i++) {
+    for (i = 0; i < le32toh(pcr_select->count); i++) {
         const char *alg_name = tpm2_alg_util_algtostr(
-                pcr_select->pcrSelections[i].hash, tpm2_alg_util_flags_hash);
+                le16toh(pcr_select->pcrSelections[i].hash), tpm2_alg_util_flags_hash);
 
         tpm2_tool_output("  %s:\n", alg_name);
 
@@ -199,7 +200,7 @@ bool pcr_print_pcr_struct(TPML_PCR_SELECTION *pcr_select, tpm2_pcrs *pcrs) {
                 // skip non-selected banks
                 continue;
             }
-            if (vi >= pcrs->count || di >= pcrs->pcr_values[vi].count) {
+            if (vi >= le64toh(pcrs->count) || di >= le32toh(pcrs->pcr_values[vi].count)) {
                 LOG_ERR("Something wrong, trying to print but nothing more");
                 return false;
             }
@@ -210,17 +211,17 @@ bool pcr_print_pcr_struct(TPML_PCR_SELECTION *pcr_select, tpm2_pcrs *pcrs) {
             // Print out current PCR digest value
             TPM2B_DIGEST *b = &pcrs->pcr_values[vi].digests[di];
             int k;
-            for (k = 0; k < b->size; k++) {
+            for (k = 0; k < le16toh(b->size); k++) {
                 tpm2_tool_output("%02X", b->buffer[k]);
             }
             tpm2_tool_output("\n");
 
-            if (++di < pcrs->pcr_values[vi].count) {
+            if (++di < le32toh(pcrs->pcr_values[vi].count)) {
                 continue;
             }
 
             di = 0;
-            if (++vi < pcrs->count) {
+            if (++vi < le64toh(pcrs->count)) {
                 continue;
             }
         }
