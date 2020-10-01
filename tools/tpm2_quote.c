@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <endian.h>
 
 #include "files.h"
 #include "log.h"
@@ -42,11 +43,18 @@ static tpm_quote_ctx ctx = {
 
 // write all PCR banks according to g_pcrSelection & g_pcrs->
 static bool write_pcr_values() {
+    UINT32 count;
 
     // PCR output to file wasn't requested
     if (ctx.pcr_output == NULL) {
         return true;
     }
+
+    // Make sure the file content is written in little endian format
+    ctx.pcr_selections.count = htole32(ctx.pcr_selections.count);
+    UINT32 i;
+    for (i = 0; i < le32toh(ctx.pcr_selections.count); i++)
+        ctx.pcr_selections.pcrSelections[i].hash = htole16(ctx.pcr_selections.pcrSelections[i].hash);
 
     // Export TPML_PCR_SELECTION structure to pcr outfile
     if (fwrite(&ctx.pcr_selections, sizeof(TPML_PCR_SELECTION), 1,
@@ -55,14 +63,21 @@ static bool write_pcr_values() {
         return false;
     }
 
+    count = htole32(ctx.pcrs.count);
     // Export PCR digests to pcr outfile
-    if (fwrite(&ctx.pcrs.count, sizeof(UINT32), 1, ctx.pcr_output) != 1) {
+    if (fwrite(&count, sizeof(UINT32), 1, ctx.pcr_output) != 1) {
         LOG_ERR("write to output file failed: %s", strerror(errno));
         return false;
     }
 
     UINT32 j;
     for (j = 0; j < ctx.pcrs.count; j++) {
+        ctx.pcrs.pcr_values[j].count = htole32(ctx.pcrs.pcr_values[j].count);
+
+        UINT32 k;
+        for(k = 0; k < le32toh(ctx.pcrs.pcr_values[j].count); k++)
+            ctx.pcrs.pcr_values[j].digests[k].size = htole16(ctx.pcrs.pcr_values[j].digests[k].size);
+
         if (fwrite(&ctx.pcrs.pcr_values[j], sizeof(TPML_DIGEST), 1,
                 ctx.pcr_output) != 1) {
             LOG_ERR("write to output file failed: %s", strerror(errno));
